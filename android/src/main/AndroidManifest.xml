@@ -1,0 +1,7 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+  package="com.sps.tuya_plugin">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <application
+        android:label="tuya_flutter_plugin_example">
+    </application>
+</manifest>
