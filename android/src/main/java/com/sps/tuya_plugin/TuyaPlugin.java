@@ -201,4 +201,391 @@ public class TuyaPlugin implements FlutterPlugin, MethodCallHandler {
     message.obj = map;
     result.success(map);
   }
+  
+  
+    @Nonnull
+    @Override
+    public String getName() {
+        return "TuyaHomeModule";
+    }
+
+    public void getHomeDetail(ReadableMap params, final Promise promise) {
+        if (ReactParamsCheck.checkParams(Arrays.asList(HOMEID), params)) {
+            getHomeInstance(params.getDouble(HOMEID)).getHomeDetail(new ITuyaHomeResultCallback() {
+                @Override
+                public void onSuccess(HomeBean bean) {
+                    promise.resolve(TuyaReactUtils.parseToWritableMap(TuyaHomeSdk.newHomeInstance(bean.getHomeId())));
+                }
+
+                @Override
+                public void onError(String errorCode, String errorMsg) {
+
+                }
+            });
+        }
+    }
+
+
+    public void getHomeLocalCache(ReadableMap params, final Promise promise) {
+        if (ReactParamsCheck.checkParams(Arrays.asList(HOMEID), params)) {
+            getHomeInstance(params.getDouble(HOMEID)).getHomeLocalCache(getITuyaHomeResultCallback(promise));
+        }
+    }
+
+
+    public void updateHome(ReadableMap params, final Promise promise) {
+        if (ReactParamsCheck.checkParams(Arrays.asList(HOMEID, NAME, LON, LAT, GEONAME), params)) {
+            getHomeInstance(params.getDouble(HOMEID)).updateHome(
+                    params.getString(NAME),
+                    params.getDouble(LON),
+                    params.getDouble(LAT),
+                    params.getString(GEONAME),
+                    getIResultCallback(promise));
+        }
+    }
+
+    public void dismissHome(ReadableMap params, final Promise promise) {
+        if (ReactParamsCheck.checkParams(Arrays.asList(HOMEID), params)) {
+            getHomeInstance(params.getDouble(HOMEID)).dismissHome(getIResultCallback(promise));
+        }
+    }
+
+    public void sortHome(ReadableMap params, final Promise promise) {
+        if (ReactParamsCheck.checkParams(Arrays.asList(HOMEID, IDLIST), params)) {
+            ArrayList<Long> list = new ArrayList<>();
+            for (int i = 0; i < params.getArray(IDLIST).size(); i++) {
+                list.add(coverDTL(params.getArray(IDLIST).getDouble(i)));
+            }
+            getHomeInstance(params.getDouble(HOMEID)).sortHome(list, getIResultCallback(promise));
+        }
+    }
+
+    public void addRoom(ReadableMap params, final Promise promise) {
+        if (ReactParamsCheck.checkParams(Arrays.asList(HOMEID, NAME), params)) {
+            getHomeInstance(params.getDouble(HOMEID)).addRoom(params.getString(NAME), getITuyaRoomResultCallback(promise));
+        }
+    }
+
+
+    public void removeRoom(ReadableMap params, final Promise promise) {
+        if (ReactParamsCheck.checkParams(Arrays.asList(HOMEID, ROOMID), params)) {
+            getHomeInstance(params.getDouble(HOMEID)).removeRoom(coverDTL(params.getDouble(ROOMID)), getIResultCallback(promise));
+        }
+    }
+
+
+    public void sortRoom(ReadableMap params, final Promise promise) {
+        if (ReactParamsCheck.checkParams(Arrays.asList(HOMEID, IDLIST), params)) {
+            ArrayList<Long> list = new ArrayList<>();
+            for (int i = 0; i < params.getArray(IDLIST).size(); i++) {
+                list.add(coverDTL(params.getArray(IDLIST).getDouble(i)));
+            }
+            getHomeInstance(params.getDouble(HOMEID)).sortRoom(list, getIResultCallback(promise));
+        }
+    }
+
+
+    public void queryRoomList(ReadableMap params, final Promise promise) {
+        if (ReactParamsCheck.checkParams(Arrays.asList(HOMEID), params)) {
+            getHomeInstance(params.getDouble(HOMEID)).queryRoomList(getITuyaGetRoomListCallback(promise));
+        }
+    }
+
+
+    public void getHomeBean(ReadableMap params, final Promise promise) {
+        if (ReactParamsCheck.checkParams(Arrays.asList(HOMEID), params)) {
+            promise.resolve(TuyaReactUtils.parseToWritableMap(getHomeInstance(params.getDouble(HOMEID)).getHomeBean()));
+        }
+    }
+
+    public void createGroup(ReadableMap params, final Promise promise) {
+        if (ReactParamsCheck.checkParams(Arrays.asList(HOMEID, DEVIDLIST, PRODUCTID, NAME), params)) {
+            ArrayList<String> list = new ArrayList<>();
+            for (int i = 0; i < params.getArray(DEVIDLIST).size(); i++) {
+                list.add(params.getArray(DEVIDLIST).getString(i));
+            }
+            getHomeInstance(params.getDouble(HOMEID)).createGroup(
+                    params.getString(PRODUCTID),
+                    params.getString(NAME),
+                    list,
+                    getITuyaResultCallback(promise)
+            );
+        }
+    }
+
+    public void queryRoomInfoByDevice(ReadableMap params, final Promise promise) {
+        if (ReactParamsCheck.checkParams(Arrays.asList(HOMEID, DEVICES), params)) {
+            List deviceBeans = JsonUtils.parseArray(JsonUtils.toString(TuyaReactUtils.parseToList(params.getArray(DEVICES))), DeviceBean.class);
+            List<RoomBean> roomBeans = getHomeInstance(params.getDouble(HOMEID)).queryRoomInfoByDevice(deviceBeans);
+            promise.resolve(TuyaReactUtils.parseToWritableArray(JsonUtils.toJsonArray(roomBeans)));
+        }
+    }
+
+
+    public void registerHomeDeviceStatusListener(final ReadableMap params) {
+        if (ReactParamsCheck.checkParams(Arrays.asList(HOMEID), params)) {
+            if (mITuyaHomeDeviceStatusListener != null) {
+                getHomeInstance(params.getDouble(HOMEID)).unRegisterHomeDeviceStatusListener(mITuyaHomeDeviceStatusListener);
+                mITuyaHomeDeviceStatusListener = null;
+
+            }
+            mITuyaHomeDeviceStatusListener = new ITuyaHomeDeviceStatusListener() {
+                @Override
+                public void onDeviceDpUpdate(String devId, String dpStr) {
+                    WritableMap map = Arguments.createMap();
+                    map.putString("devId", devId);
+                    map.putString("dpStr", dpStr);
+                    map.putString("type", "onDeviceDpUpdate");
+                    BridgeUtils.homeDeviceStatus(getReactApplicationContext(), map, Double.valueOf(params.getDouble(HOMEID)).longValue()+"");
+                }
+
+                @Override
+                public void onDeviceStatusChanged(String devId, boolean online) {
+                    WritableMap map = Arguments.createMap();
+                    map.putString("devId", devId);
+                    map.putBoolean("online", online);
+                    map.putString("type", "onDeviceStatusChanged");
+                    BridgeUtils.homeDeviceStatus(getReactApplicationContext(), map, Double.valueOf(params.getDouble(HOMEID)).longValue()+"");
+                }
+
+                @Override
+                public void onDeviceInfoUpdate(String devId) {
+                    WritableMap map = Arguments.createMap();
+                    map.putString("devId", devId);
+                    map.putString("type", "onDeviceInfoUpdate");
+                    BridgeUtils.homeDeviceStatus(getReactApplicationContext(), map, Double.valueOf(params.getDouble(HOMEID)).longValue()+"");
+                }
+            };
+            getHomeInstance(params.getDouble(HOMEID)).registerHomeDeviceStatusListener(mITuyaHomeDeviceStatusListener);
+        }
+    }
+
+    @ReactMethod
+    public void unRegisterHomeDeviceStatusListener(ReadableMap params) {
+        if (ReactParamsCheck.checkParams(Arrays.asList(HOMEID), params)) {
+            if (mITuyaHomeDeviceStatusListener != null) {
+                getHomeInstance(params.getDouble(HOMEID)).unRegisterHomeDeviceStatusListener(mITuyaHomeDeviceStatusListener);
+                mITuyaHomeDeviceStatusListener = null;
+            }
+        }
+    }
+
+
+   
+    public void registerHomeStatusListener(final ReadableMap params) {
+        if (ReactParamsCheck.checkParams(Arrays.asList(HOMEID), params)) {
+            if (mITuyaHomeStatusListener != null) {
+                getHomeInstance(params.getDouble(HOMEID)).unRegisterHomeStatusListener(mITuyaHomeStatusListener);
+                mITuyaHomeStatusListener = null;
+
+            }
+            mITuyaHomeStatusListener = new ITuyaHomeStatusListener() {
+
+                @Override
+                public void onDeviceAdded(String devId) {
+                    WritableMap map = Arguments.createMap();
+                    map.putString("devId", devId);
+                    map.putString("type", "onDeviceAdded");
+                    BridgeUtils.homeStatus(getReactApplicationContext(), map, Double.valueOf(params.getDouble(HOMEID)).longValue()+"");
+                }
+
+                @Override
+                public void onDeviceRemoved(String devId) {
+                    WritableMap map = Arguments.createMap();
+                    map.putString("devId", devId);
+                    map.putString("type", "onDeviceRemoved");
+                    BridgeUtils.homeStatus(getReactApplicationContext(), map, Double.valueOf(params.getDouble(HOMEID)).longValue()+"");
+                }
+
+                @Override
+                public void onGroupAdded(long groupId) {
+                    WritableMap map = Arguments.createMap();
+                    map.putDouble("groupId", groupId);
+                    map.putString("type", "onGroupAdded");
+                    BridgeUtils.homeStatus(getReactApplicationContext(), map, Double.valueOf(params.getDouble(HOMEID)).longValue()+"");
+                }
+
+                @Override
+                public void onGroupRemoved(long groupId) {
+                    WritableMap map = Arguments.createMap();
+                    map.putDouble("groupId", groupId);
+                    map.putString("type", "onGroupRemoved");
+                    BridgeUtils.homeStatus(getReactApplicationContext(), map, Double.valueOf(params.getDouble(HOMEID)).longValue()+"");
+                }
+
+                @Override
+                public void onMeshAdded(String meshId) {
+                    WritableMap map = Arguments.createMap();
+                    map.putString("meshId", meshId);
+                    map.putString("type", "onMeshAdded");
+                    BridgeUtils.homeStatus(getReactApplicationContext(), map, Double.valueOf(params.getDouble(HOMEID)).longValue()+"");
+                }
+            };
+            getHomeInstance(params.getDouble(HOMEID)).registerHomeStatusListener(mITuyaHomeStatusListener);
+        }
+    }
+
+    public void unRegisterHomeStatusListener(ReadableMap params) {
+        if (ReactParamsCheck.checkParams(Arrays.asList(HOMEID), params)) {
+            if (mITuyaHomeStatusListener != null) {
+                getHomeInstance(params.getDouble(HOMEID)).unRegisterHomeStatusListener(mITuyaHomeStatusListener);
+                mITuyaHomeStatusListener = null;
+            }
+        }
+    }
+
+
+    public void createBlueMesh(ReadableMap params, final Promise promise) {
+        if (ReactParamsCheck.checkParams(Arrays.asList(HOMEID, MESHID), params)) {
+            getHomeInstance(params.getDouble(HOMEID)).createBlueMesh(params.getString(MESHID), getITuyaResultCallback(promise));
+        }
+    }
+
+    public void createSigMesh(ReadableMap params, final Promise promise) {
+        if (ReactParamsCheck.checkParams(Arrays.asList(HOMEID), params)) {
+            getHomeInstance(params.getDouble(HOMEID)).createSigMesh(getITuyaResultCallback(promise));
+        }
+    }
+
+    public void queryDeviceListToAddGroup(ReadableMap params, final Promise promise) {
+        if (ReactParamsCheck.checkParams(Arrays.asList(HOMEID, GROUPID, PRODUCTID), params)) {
+            getHomeInstance(params.getDouble(HOMEID)).queryDeviceListToAddGroup(coverDTL(params.getDouble(GROUPID)), params.getString(PRODUCTID), getITuyaResultCallback(promise));
+        }
+    }
+
+
+    public void queryZigbeeDeviceListToAddGroup(ReadableMap params, final Promise promise) {
+        if (ReactParamsCheck.checkParams(Arrays.asList(HOMEID, PRODUCTID, GROUPID, PARENTID), params)) {
+            getHomeInstance(params.getDouble(HOMEID)).queryZigbeeDeviceListToAddGroup(coverDTL(params.getDouble(GROUPID)),
+                    params.getString(PRODUCTID),
+                    params.getString(PARENTID), getITuyaResultCallback(promise));
+        }
+    }
+
+    public void onDestroy(ReadableMap params) {
+        if (ReactParamsCheck.checkParams(Arrays.asList(HOMEID), params)) {
+            getHomeInstance(params.getDouble(HOMEID)).onDestroy();
+        }
+    }
+
+    public void createZigbeeGroup(ReadableMap params, Promise promise) {
+        if (ReactParamsCheck.checkParams(Arrays.asList(HOMEID, PRODUCTID, PARENTID, PARENTTYPE, NAME), params)) {
+            getHomeInstance(params.getDouble(HOMEID)).createZigbeeGroup(
+                    params.getString(PRODUCTID),
+                    params.getString(PARENTID),
+                    params.getInt(PARENTTYPE),
+                    params.getString(NAME),
+                    getITuyaResultCallback(promise)
+            );
+        }
+    }
+
+    public void queryRoomInfoByGroup(ReadableMap params, final Promise promise) {
+        if (ReactParamsCheck.checkParams(Arrays.asList(HOMEID, LIST), params)) {
+            List deviceBeans = JsonUtils.parseArray(JsonUtils.toString(TuyaReactUtils.parseToList(params.getArray(LIST))), GroupBean.class);
+            List<RoomBean> roomBeans = getHomeInstance(params.getDouble(HOMEID)).queryRoomInfoByGroup(deviceBeans);
+            promise.resolve(TuyaReactUtils.parseToWritableArray(JsonUtils.toJsonArray(roomBeans)));
+        }
+    }
+
+    public void bindNewConfigDevs(ReadableMap params, Promise promise) {
+        if (ReactParamsCheck.checkParams(Arrays.asList(HOMEID, DEVIDLIST), params)) {
+            ArrayList<String> list = new ArrayList<>();
+            for (int i = 0; i < params.getArray(DEVIDLIST).size(); i++) {
+                list.add(params.getArray(DEVIDLIST).getString(i));
+            }
+            getHomeInstance(params.getDouble(HOMEID)).bindNewConfigDevs(
+                    list,
+                    getIResultCallback(promise));
+        }
+    }
+
+
+    public void registerProductWarnListener(final ReadableMap params) {
+        if (ReactParamsCheck.checkParams(Arrays.asList(HOMEID), params)) {
+            if (mIWarningMsgListener != null) {
+                getHomeInstance(params.getDouble(HOMEID)).unRegisterProductWarnListener(mIWarningMsgListener);
+                mIWarningMsgListener = null;
+            }
+            mIWarningMsgListener = new IWarningMsgListener() {
+                @Override
+                public void onWarnMessageArrived(WarnMessageBean warnMessageBean) {
+                    BridgeUtils.warnMessageArrived(getReactApplicationContext(), Arguments.createMap(), Double.valueOf(params.getDouble(HOMEID)).longValue()+"");
+                }
+            };
+            getHomeInstance(params.getDouble(HOMEID)).registerProductWarnListener(mIWarningMsgListener);
+        }
+    }
+
+    public void unRegisterProductWarnListener(ReadableMap params) {
+        if (ReactParamsCheck.checkParams(Arrays.asList(HOMEID), params)) {
+            if (mIWarningMsgListener != null) {
+                getHomeInstance(params.getDouble(HOMEID)).unRegisterProductWarnListener(mIWarningMsgListener);
+                mIWarningMsgListener = null;
+            }
+        }
+    }
+
+    public void sortDevInHome(ReadableMap params, Promise promise) {
+        if (ReactParamsCheck.checkParams(Arrays.asList(HOMEID, LIST), params)) {
+            getHomeInstance(params.getDouble(HOMEID)).sortDevInHome(
+                    Double.valueOf(params.getDouble(HOMEID)).toString(),
+                    JsonUtils.parseArray(JsonUtils.toString(TuyaReactUtils.parseToList(params.getArray(LIST))), DeviceAndGroupInHomeBean.class),
+                    getIResultCallback(promise));
+        }
+    }
+
+
+    private ITuyaHome getHomeInstance(double homeId) {
+        return TuyaHomeSdk.newHomeInstance(coverDTL(homeId));
+    }
+
+
+    public static ITuyaRoomResultCallback getITuyaRoomResultCallback(final Promise promise) {
+        return new ITuyaRoomResultCallback() {
+            @Override
+            public void onSuccess(RoomBean bean) {
+                promise.resolve(TuyaReactUtils.parseToWritableMap(bean));
+            }
+
+            @Override
+            public void onError(String code, String error) {
+                promise.reject(code, error);
+            }
+
+        };
+    }
+
+    public static ITuyaGetRoomListCallback getITuyaGetRoomListCallback(final Promise promise) {
+        return new ITuyaGetRoomListCallback() {
+            @Override
+            public void onSuccess(List<RoomBean> romeBeans) {
+                promise.resolve(TuyaReactUtils.parseToWritableArray(JsonUtils.toJsonArray(romeBeans)));
+            }
+
+            @Override
+            public void onError(String code, String error) {
+                promise.reject(code, error);
+            }
+
+        };
+    }
+
+    public static ITuyaHomeResultCallback getITuyaHomeResultCallback(final Promise promise) {
+        return new ITuyaHomeResultCallback() {
+            @Override
+            public void onSuccess(HomeBean bean) {
+                promise.resolve(TuyaReactUtils.parseToWritableMap(bean));
+            }
+
+            @Override
+            public void onError(String code, String error) {
+                promise.reject(code, error);
+            }
+
+        };
+    }
+
+  
+  
 }
